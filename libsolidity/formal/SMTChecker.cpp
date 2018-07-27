@@ -95,7 +95,7 @@ bool SMTChecker::visit(FunctionDefinition const& _function)
 
 void SMTChecker::endVisit(FunctionDefinition const&)
 {
-	// TOOD we could check for "reachability", i.e. satisfiability here.
+	// TODO we could check for "reachability", i.e. satisfiability here.
 	// We only handle local variables, so we clear at the beginning of the function.
 	// If we add storage variables, those should be cleared differently.
 	removeLocalVariables();
@@ -429,7 +429,14 @@ void SMTChecker::arithmeticOperation(BinaryOperation const& _op)
 	case Token::Div:
 	{
 		solAssert(_op.annotation().commonType, "");
-		solAssert(_op.annotation().commonType->category() == Type::Category::Integer, "");
+		if (_op.annotation().commonType->category() != Type::Category::Integer)
+		{
+			m_errorReporter.warning(
+				_op.location(),
+				"Assertion checker does not yet implement this operator on non-integer types."
+			);
+			break;
+		}
 		auto const& intType = dynamic_cast<IntegerType const&>(*_op.annotation().commonType);
 		smt::Expression left(expr(_op.leftExpression()));
 		smt::Expression right(expr(_op.rightExpression()));
@@ -752,6 +759,7 @@ void SMTChecker::mergeVariables(vector<VariableDeclaration const*> const& _varia
 	set<VariableDeclaration const*> uniqueVars(_variables.begin(), _variables.end());
 	for (auto const* decl: uniqueVars)
 	{
+		solAssert(_countersEndTrue.count(decl) && _countersEndFalse.count(decl), "");
 		int trueCounter = _countersEndTrue.at(decl).index();
 		int falseCounter = _countersEndFalse.at(decl).index();
 		solAssert(trueCounter != falseCounter, "");

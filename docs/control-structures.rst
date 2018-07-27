@@ -39,7 +39,7 @@ write::
     pragma solidity ^0.4.16;
 
     contract Simple {
-        function arithmetics(uint _a, uint _b)
+        function arithmetic(uint _a, uint _b)
             public
             pure
             returns (uint o_sum, uint o_product)
@@ -225,11 +225,11 @@ creation-dependencies are not possible.
 
 ::
 
-    pragma solidity ^0.4.0;
+    pragma solidity >0.4.24;
 
     contract D {
         uint x;
-        function D(uint a) public payable {
+        constructor(uint a) public payable {
             x = a;
         }
     }
@@ -293,18 +293,13 @@ These can then either be assigned to newly declared variables or to pre-existing
             (x, y) = (y, x);
             // Components can be left out (also for variable declarations).
             (data.length,,) = f(); // Sets the length to 7
-            // Components can only be left out at the left-hand-side of assignments, with
-            // one exception:
-            (x,) = (1,);
-            // (1,) is the only way to specify a 1-component tuple, because (1) is
-            // equivalent to 1.
         }
     }
 
 .. note::
-    Prior to version 0.4.24 it was possible to assign to tuples of smaller size, either
+    Prior to version 0.5.0 it was possible to assign to tuples of smaller size, either
     filling up on the left or on the right side (which ever was empty). This is
-    now deprecated, both sides have to have the same number of components.
+    now disallowed, so both sides have to have the same number of components.
 
 Complications for Arrays and Structs
 ------------------------------------
@@ -423,18 +418,18 @@ a message string for ``require``, but not for ``assert``.
 
 ::
 
-    pragma solidity ^0.4.22;
+    pragma solidity >0.4.24;
 
     contract Sharer {
         function sendHalf(address addr) public payable returns (uint balance) {
             require(msg.value % 2 == 0, "Even value required.");
-            uint balanceBeforeTransfer = this.balance;
+            uint balanceBeforeTransfer = address(this).balance;
             addr.transfer(msg.value / 2);
             // Since transfer throws an exception on failure and
             // cannot call back here, there should be no way for us to
             // still have half of the money.
-            assert(this.balance == balanceBeforeTransfer - msg.value / 2);
-            return this.balance;
+            assert(address(this).balance == balanceBeforeTransfer - msg.value / 2);
+            return address(this).balance;
         }
     }
 
@@ -470,10 +465,10 @@ The following example shows how an error string can be used together with revert
 
 ::
 
-    pragma solidity ^0.4.22;
+    pragma solidity >0.4.24;
 
     contract VendingMachine {
-        function buy(uint amount) payable {
+        function buy(uint amount) public payable {
             if (amount > msg.value / 2 ether)
                 revert("Not enough Ether provided.");
             // Alternative way to do it:

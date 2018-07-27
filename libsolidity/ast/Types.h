@@ -740,8 +740,6 @@ public:
 	std::vector<std::tuple<VariableDeclaration const*, u256, unsigned>> stateVariables() const;
 
 private:
-	static void addNonConflictingAddressMembers(MemberList::MemberMap& _members);
-
 	ContractDefinition const& m_contract;
 	/// If true, it is the "super" type of the current contract, i.e. it contains only inherited
 	/// members.
@@ -1031,7 +1029,7 @@ public:
 	/// @param _selfType if the function is bound, this has to be supplied and is the type of the
 	/// expression the function is called on.
 	bool canTakeArguments(TypePointers const& _arguments, TypePointer const& _selfType = TypePointer()) const;
-	/// @returns true if the types of parameters are equal (does't check return parameter types)
+	/// @returns true if the types of parameters are equal (doesn't check return parameter types)
 	bool hasEqualArgumentTypes(FunctionType const& _other) const;
 
 	/// @returns true if the ABI is used for this call (only meaningful for external calls)
@@ -1058,18 +1056,21 @@ public:
 	ASTPointer<ASTString> documentation() const;
 
 	/// true iff arguments are to be padded to multiples of 32 bytes for external calls
-	bool padArguments() const { return !(m_kind == Kind::SHA3 || m_kind == Kind::SHA256 || m_kind == Kind::RIPEMD160 || m_kind == Kind::ABIEncodePacked); }
+	/// The only functions that do not pad are hash functions, the low-level call functions
+	/// and abi.encodePacked.
+	bool padArguments() const;
 	bool takesArbitraryParameters() const { return m_arbitraryParameters; }
 	/// true iff the function takes a single bytes parameter and it is passed on without padding.
-	/// @todo until 0.5.0, this is just a "recommendation".
 	bool takesSinglePackedBytesParameter() const
 	{
-		// @todo add the call kinds here with 0.5.0 and perhaps also log0.
 		switch (m_kind)
 		{
 		case FunctionType::Kind::SHA3:
 		case FunctionType::Kind::SHA256:
 		case FunctionType::Kind::RIPEMD160:
+		case FunctionType::Kind::BareCall:
+		case FunctionType::Kind::BareCallCode:
+		case FunctionType::Kind::BareDelegateCall:
 			return true;
 		default:
 			return false;

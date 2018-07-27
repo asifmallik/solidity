@@ -2,14 +2,14 @@
 
 .. _ABI:
 
-******************************************
-Application Binary Interface Specification
-******************************************
+**************************
+Contract ABI Specification
+**************************
 
 Basic Design
 ============
 
-The Application Binary Interface is the standard way to interact with contracts in the Ethereum ecosystem, both
+The Contract Application Binary Interface (ABI) is the standard way to interact with contracts in the Ethereum ecosystem, both
 from outside the blockchain and for contract-to-contract interaction. Data is encoded according to its type,
 as described in this specification.  The encoding is not self describing and thus requires a schema in order to decode.
 
@@ -193,9 +193,9 @@ Given the contract:
     pragma solidity ^0.4.16;
 
     contract Foo {
-      function bar(bytes3[2]) public pure {}
+      function bar(bytes3[2] memory) public pure {}
       function baz(uint32 x, bool y) public pure returns (bool r) { r = x > 32 || y; }
-      function sam(bytes, bool, uint[]) public pure {}
+      function sam(bytes memory, bool, uint[] memory) public pure {}
     }
 
 
@@ -279,13 +279,13 @@ All together, the encoding is (newline after function selector and each 32-bytes
 
 Let us apply the same principle to encode the data for a function with a signature ``g(uint[][],string[])`` with values ``([[1, 2], [3]], ["one", "two", "three"])`` but start from the most atomic parts of the encoding:
 
-First we encode the length and data of the first embeded dynamic array ``[1, 2]`` of the first root array ``[[1, 2], [3]]``:
+First we encode the length and data of the first embedded dynamic array ``[1, 2]`` of the first root array ``[[1, 2], [3]]``:
 
  - ``0x0000000000000000000000000000000000000000000000000000000000000002`` (number of elements in the first array, 2; the elements themselves are ``1``  and ``2``)
  - ``0x0000000000000000000000000000000000000000000000000000000000000001`` (first element)
  - ``0x0000000000000000000000000000000000000000000000000000000000000002`` (second element)
 
-Then we encode the length and data of the second embeded dynamic array ``[3]`` of the first root array ``[[1, 2], [3]]``:
+Then we encode the length and data of the second embedded dynamic array ``[3]`` of the first root array ``[[1, 2], [3]]``:
 
  - ``0x0000000000000000000000000000000000000000000000000000000000000001`` (number of elements in the second array, 1; the element is ``3``)
  - ``0x0000000000000000000000000000000000000000000000000000000000000003`` (first element)
@@ -307,7 +307,7 @@ Offset ``a`` points to the start of the content of the array ``[1, 2]`` which is
 Offset ``b`` points to the start of the content of the array ``[3]`` which is line 5 (160 bytes); thus ``b = 0x00000000000000000000000000000000000000000000000000000000000000a0``.
 
 
-Then we encode the embeded strings of the second root array:
+Then we encode the embedded strings of the second root array:
 
  - ``0x0000000000000000000000000000000000000000000000000000000000000003`` (number of characters in word ``"one"``)
  - ``0x6f6e650000000000000000000000000000000000000000000000000000000000`` (utf8 representation of word ``"one"``)
@@ -337,7 +337,7 @@ Offset ``d`` points to the start of the content of the string ``"two"`` which is
 Offset ``e`` points to the start of the content of the string ``"three"`` which is line 7 (224 bytes); thus ``e = 0x00000000000000000000000000000000000000000000000000000000000000e0``.
 
 
-Note that the encodings of the embeded elements of the root arrays are not dependent on each other and have the same encodings for a fuction with a signature ``g(string[],uint[][])``.
+Note that the encodings of the embedded elements of the root arrays are not dependent on each other and have the same encodings for a function with a signature ``g(string[],uint[][])``.
 
 Then we encode the length of the first root array:
 
@@ -410,15 +410,19 @@ A function description is a JSON object with the fields:
   * ``components``: used for tuple types (more below).
 
 - ``outputs``: an array of objects similar to ``inputs``, can be omitted if function doesn't return anything;
-- ``payable``: ``true`` if function accepts ether, defaults to ``false``;
-- ``stateMutability``: a string with one of the following values: ``pure`` (:ref:`specified to not read blockchain state <pure-functions>`), ``view`` (:ref:`specified to not modify the blockchain state <view-functions>`), ``nonpayable`` and ``payable`` (same as ``payable`` above).
-- ``constant``: ``true`` if function is either ``pure`` or ``view``
+- ``stateMutability``: a string with one of the following values: ``pure`` (:ref:`specified to not read blockchain state <pure-functions>`), ``view`` (:ref:`specified to not modify the blockchain state <view-functions>`), ``nonpayable`` (function does not accept ether) and ``payable`` (function accepts ether);
+- ``payable``: ``true`` if function accepts ether, ``false`` otherwise;
+- ``constant``: ``true`` if function is either ``pure`` or ``view``, ``false`` otherwise.
 
-``type`` can be omitted, defaulting to ``"function"``.
+``type`` can be omitted, defaulting to ``"function"``, likewise ``payable`` and ``constant`` can be omitted, both defaulting to ``false``.
 
 Constructor and fallback function never have ``name`` or ``outputs``. Fallback function doesn't have ``inputs`` either.
 
-Sending non-zero ether to non-payable function will throw. Don't do it.
+.. warning::
+    The fields ``constant`` and ``payable`` are deprecated and will be removed in the future. Instead, the ``stateMutability`` field can be used to determine the same properties.
+
+.. note::
+    Sending non-zero ether to non-payable function will revert the transaction.
 
 An event description is a JSON object with fairly similar fields:
 
@@ -437,13 +441,13 @@ For example,
 
 ::
 
-    pragma solidity ^0.4.0;
+    pragma solidity >0.4.24;
 
     contract Test {
-      function Test() public { b = 0x12345678901234567890123456789012; }
+      constructor() public { b = 0x12345678901234567890123456789012; }
       event Event(uint indexed a, bytes32 b);
       event Event2(uint indexed a, bytes32 b);
-      function foo(uint a) public { Event(a, b); }
+      function foo(uint a) public { emit Event(a, b); }
       bytes32 b;
     }
 
@@ -490,8 +494,8 @@ As an example, the code
     contract Test {
       struct S { uint a; uint[] b; T[] c; }
       struct T { uint x; uint y; }
-      function f(S s, T t, uint a) public { }
-      function g() public returns (S s, T t, uint a) {}
+      function f(S memory s, T memory t, uint a) public { }
+      function g() public returns (S memory s, T memory t, uint a) {}
     }
 
 would result in the JSON:
@@ -559,7 +563,7 @@ would result in the JSON:
 Non-standard Packed Mode
 ========================
 
-Solidity supports a non-standard packed mode where:
+Through ``abi.encodePacked()``, Solidity supports a non-standard packed mode where:
 
 - no :ref:`function selector <abi_function_selector>` is encoded,
 - types shorter than 32 bytes are neither zero padded nor sign extended and
@@ -577,3 +581,9 @@ More specifically, each statically-sized type takes as many bytes as its range h
 and dynamically-sized types like ``string``, ``bytes`` or ``uint[]`` are encoded without
 their length field. This means that the encoding is ambiguous as soon as there are two
 dynamically-sized elements.
+
+Note that constants will be packed using the minimum number of bytes required to store them.
+This means that, for example, ``abi.encodePacked(0) == abi.encodePacked(uint8(0)) == hex"00"`` and
+``abi.encodePacked(0x12345678) == abi.encodePacked(uint32(0x12345678)) == hex"12345678"``.
+
+If padding is needed, explicit type conversions can be used: ``abi.encodePacked(uint16(0x12)) == hex"0012"``.

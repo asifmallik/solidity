@@ -377,19 +377,10 @@ void ReferencesResolver::endVisit(VariableDeclaration const& _variable)
 					{
 						typeLoc = DataLocation::Storage;
 						if (_variable.isLocalVariable())
-						{
-							if (_variable.sourceUnit().annotation().experimentalFeatures.count(ExperimentalFeature::V050))
-								typeError(
-									_variable.location(),
-									"Data location must be specified as either \"memory\" or \"storage\"."
-								);
-							else
-								m_errorReporter.warning(
-									_variable.location(),
-									"Variable is declared as a storage pointer. "
-									"Use an explicit \"storage\" keyword to silence this warning."
-								);
-						}
+							typeError(
+								_variable.location(),
+								"Data location must be specified as either \"memory\" or \"storage\"."
+							);
 					}
 				}
 				else
@@ -413,8 +404,15 @@ void ReferencesResolver::endVisit(VariableDeclaration const& _variable)
 				}
 				isPointer = !_variable.isStateVariable();
 			}
-
 			type = ref->copyForLocation(typeLoc, isPointer);
+		}
+		else if (dynamic_cast<MappingType const*>(type.get()))
+		{
+			if (_variable.isLocalVariable() && varLoc != Location::Storage)
+				typeError(
+					_variable.location(),
+					"Data location for mappings must be specified as \"storage\"."
+				);
 		}
 		else if (varLoc != Location::Default && !ref)
 			typeError(_variable.location(), "Data location can only be given for array or struct types.");

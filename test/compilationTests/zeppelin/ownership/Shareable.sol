@@ -37,7 +37,7 @@ contract Shareable {
   // simple single-sig function modifier.
   modifier onlyOwner {
     if (!isOwner(msg.sender)) {
-      throw;
+      revert();
     }
     _;
   }
@@ -59,7 +59,7 @@ contract Shareable {
    * @param _owners A list of owners.
    * @param _required The amount required for a transaction to be approved.
    */
-  function Shareable(address[] _owners, uint256 _required) {
+  constructor(address[] memory _owners, uint256 _required) public {
     owners[1] = msg.sender;
     ownerIndex[msg.sender] = 1;
     for (uint256 i = 0; i < _owners.length; ++i) {
@@ -68,7 +68,7 @@ contract Shareable {
     }
     required = _required;
     if (required > owners.length) {
-      throw;
+      revert();
     }
   }
 
@@ -87,7 +87,7 @@ contract Shareable {
     if (pending.ownersDone & ownerIndexBit > 0) {
       pending.yetNeeded++;
       pending.ownersDone -= ownerIndexBit;
-      Revoke(msg.sender, _operation);
+      emit Revoke(msg.sender, _operation);
     }
   }
 
@@ -96,7 +96,7 @@ contract Shareable {
    * @param ownerIndex uint256 The index of the owner
    * @return The address of the owner
    */
-  function getOwner(uint256 ownerIndex) external constant returns (address) {
+  function getOwner(uint256 ownerIndex) external view returns (address) {
     return address(owners[ownerIndex + 1]);
   }
 
@@ -105,7 +105,7 @@ contract Shareable {
    * @param _addr address The address which you want to check.
    * @return True if the address is an owner and fase otherwise.
    */
-  function isOwner(address _addr) constant returns (bool) {
+  function isOwner(address _addr) public view returns (bool) {
     return ownerIndex[_addr] > 0;
   }
 
@@ -115,7 +115,7 @@ contract Shareable {
    * @param _owner The owner address.
    * @return True if the owner has confirmed and false otherwise.
    */
-  function hasConfirmed(bytes32 _operation, address _owner) constant returns (bool) {
+  function hasConfirmed(bytes32 _operation, address _owner) public view returns (bool) {
     PendingState memory pending = pendings[_operation];
     uint256 index = ownerIndex[_owner];
 
@@ -139,7 +139,7 @@ contract Shareable {
     uint256 index = ownerIndex[msg.sender];
     // make sure they're an owner
     if (index == 0) {
-      throw;
+      revert();
     }
 
     PendingState memory pending = pendings[_operation];
@@ -156,7 +156,7 @@ contract Shareable {
     uint256 ownerIndexBit = 2**index;
     // make sure we (the message sender) haven't confirmed this operation previously.
     if (pending.ownersDone & ownerIndexBit == 0) {
-      Confirmation(msg.sender, _operation);
+      emit Confirmation(msg.sender, _operation);
       // ok - check if count is enough to go ahead.
       if (pending.yetNeeded <= 1) {
         // enough confirmations: reset and run interior.
